@@ -59,20 +59,36 @@ def parse_add_ons(raw: str | None) -> list[str]:
 
 def age_factor(age: int, product: ProductCode) -> float:
     """Return the multiplier for this age band and product. See the rules at the top of the file."""
-    # TODO (Lab 1): implement the four age bands. Motor and non-Motor differ only under 25.
-    raise NotImplementedError("Lab 1: implement age_factor")
+    if age < 0:
+        raise PricingError("Age cannot be negative")
+    if age < 25:
+        return 1.2 if product == ProductCode.MOTOR else 0.8
+    if age <= 45:
+        return 1.0
+    if age <= 60:
+        return 1.3
+    return 1.6
 
 
 def tenure_factor(tenure_years: int) -> float:
     """Return the tenure discount multiplier, or raise PricingError for an unsupported tenure."""
-    # TODO (Lab 1): look it up in TENURE_FACTORS.
-    raise NotImplementedError("Lab 1: implement tenure_factor")
+    if tenure_years not in TENURE_FACTORS:
+        raise PricingError(f"Tenure must be 1, 2 or 3 years (got {tenure_years})")
+    return TENURE_FACTORS[tenure_years]
 
 
 def add_on_factor(product: ProductCode, add_ons: list[str]) -> float:
     """1.0 plus the sum of every valid add-on loading for this product. Blank entries are ignored."""
-    # TODO (Lab 1): use ADD_ONS; raise PricingError for an add-on the product does not offer.
-    raise NotImplementedError("Lab 1: implement add_on_factor")
+    factor = 1.0
+    available = ADD_ONS.get(product, {})
+    for code in add_ons:
+        c = code.strip().upper()
+        if not c:
+            continue
+        if c not in available:
+            raise PricingError(f"Add-on '{c}' is not available for {product.name if hasattr(product, 'name') else product}")
+        factor += available[c]
+    return factor
 
 
 def calculate_premium(
@@ -87,5 +103,18 @@ def calculate_premium(
     max_sum_insured: float | None = None,
 ) -> float:
     """Return the annual premium in rupees, rounded to 2 decimals and never below MIN_PREMIUM."""
-    # TODO (Lab 1): validate sum_insured, multiply the factors, apply the minimum, round.
-    raise NotImplementedError("Lab 1: implement calculate_premium")
+    if sum_insured <= 0:
+        raise PricingError("Sum insured must be positive")
+    if min_sum_insured is not None and sum_insured < min_sum_insured:
+        raise PricingError(f"Sum insured must be at least {min_sum_insured:,.0f}")
+    if max_sum_insured is not None and sum_insured > max_sum_insured:
+        raise PricingError(f"Sum insured cannot exceed {max_sum_insured:,.0f}")
+
+    premium = (
+        sum_insured
+        * base_rate
+        * age_factor(age, product)
+        * tenure_factor(tenure_years)
+        * add_on_factor(product, add_ons or [])
+    )
+    return round(float(max(premium, MIN_PREMIUM)), 2)

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pill %}
+{% block title %}Quotes{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="container">
+    <div>
+      <span class="eyebrow">Quotes</span>
+      <h1>All <span class="hl">quotes</span></h1>
+      <p>{{ quotes|length }} shown · {{ open_count }} still open</p>
+    </div>
+    <a class="btn btn--primary" href="/quotes/new">+ New quote</a>
+  </div>
+</div>
+
+<section>
+  <div class="container">
+    <div class="tabs">
+      <a href="/quotes{% if product %}?product={{ product }}{% endif %}" class="{{ 'on' if not status }}">All</a>
+      <a href="/quotes?status=open{% if product %}&product={{ product }}{% endif %}" class="{{ 'on' if status == 'open' }}">Open</a>
+      <a href="/quotes?status=converted{% if product %}&product={{ product }}{% endif %}" class="{{ 'on' if status == 'converted' }}">Converted</a>
+      <span style="flex:1"></span>
+      <a href="/quotes{% if status %}?status={{ status }}{% endif %}" class="{{ 'on' if not product }}">All products</a>
+      {% for p in products %}
+      <a href="/quotes?product={{ p.code.value if p.code.value is defined else p.code }}{% if status %}&status={{ status }}{% endif %}" class="{{ 'on' if product == (p.code.value if p.code.value is defined else p.code) }}">{{ p.name }}</a>
+      {% endfor %}
+    </div>
+
+    <div class="card" style="padding:0">
+      {% if quotes %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Customer</th>
+              <th>Product</th>
+              <th class="num">Sum insured</th>
+              <th>Tenure</th>
+              <th class="num">Premium</th>
+              <th>Created</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for q in quotes %}
+            <tr>
+              <td><a class="mono" href="/quotes/{{ q.id }}">#{{ q.id }}</a></td>
+              <td><a href="/customers/{{ q.customer_id }}">{{ q.customer.name }}</a></td>
+              <td>{{ q.product.name }}</td>
+              <td class="num">{{ q.sum_insured | money }}</td>
+              <td>{{ q.tenure_years }} yr{{ 's' if q.tenure_years > 1 }}</td>
+              <td class="num"><strong>{{ q.premium | money }}</strong></td>
+              <td class="small muted">{{ q.created_at.strftime('%d %b %Y') }}</td>
+              <td>
+                {% if not q.policy %}
+                <span class="pill pill--info">Open</span>
+                {% else %}
+                <a class="pill pill--ok" href="/policies/{{ q.policy.id }}">Converted</a>
+                {% endif %}
+              </td>
+              <td>
+                {% if not q.policy %}
+                <a class="btn btn--accent btn--sm" href="/quotes/{{ q.id }}">Issue policy</a>
+                {% else %}
+                <a class="btn btn--ghost btn--sm" href="/policies/{{ q.policy.id }}">View policy</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty">No quotes match. <a href="/quotes/new">Create one</a>.</div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

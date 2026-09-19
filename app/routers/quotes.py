@@ -20,12 +20,30 @@ def price_quote(payload: QuoteCreate, session: Session) -> tuple[float, Customer
 
     Returns (premium, customer, product). Raise HTTPException with the right status code on failure.
     """
-    # TODO (Lab 1):
-    #   1. session.get(Customer, ...) and session.get(Product, ...) -> 404 if missing
-    #   2. age = pricing.age_on(customer.date_of_birth)
-    #   3. premium = pricing.calculate_premium(...)  (pass the product's base_rate, code, min/max)
-    #   4. catch pricing.PricingError -> HTTPException(422, str(exc))
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "TODO Lab 1: implement price_quote in app/routers/quotes.py")
+    customer = session.get(Customer, payload.customer_id)
+    if not customer:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Customer not found")
+
+    product = session.get(Product, payload.product_id)
+    if not product:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Product not found")
+
+    age = pricing.age_on(customer.date_of_birth)
+    try:
+        premium = pricing.calculate_premium(
+            sum_insured=payload.sum_insured,
+            base_rate=product.base_rate,
+            age=age,
+            tenure_years=payload.tenure_years,
+            product=product.code,
+            add_ons=pricing.parse_add_ons(payload.add_ons),
+            min_sum_insured=product.min_sum_insured,
+            max_sum_insured=product.max_sum_insured,
+        )
+    except pricing.PricingError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    return premium, customer, product
 
 
 @router.get("", response_model=list[QuoteRead])
@@ -35,9 +53,12 @@ def list_quotes(session: Session = Depends(get_session)):
 
 @router.post("", response_model=QuoteRead, status_code=status.HTTP_201_CREATED)
 def create_quote(payload: QuoteCreate, session: Session = Depends(get_session)):
-    # TODO (Lab 1): premium, _, _ = price_quote(payload, session); build a Quote(**payload.model_dump(), premium=...),
-    #               add / commit / refresh, return it.
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "TODO Lab 1: implement create_quote")
+    premium, _, _ = price_quote(payload, session)
+    quote = Quote(**payload.model_dump(), premium=premium)
+    session.add(quote)
+    session.commit()
+    session.refresh(quote)
+    return quote
 
 
 @router.get("/{quote_id}", response_model=QuoteRead)

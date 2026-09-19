@@ -135,10 +135,34 @@ def scenario_placeholder(request: Request, number: int):
 
 
 @router.get("/quotes", response_class=HTMLResponse)
-def quotes_list(request: Request, session: Session = Depends(get_session)):
-    """SCENARIO 1 — Quotes list. TODO: query quotes (filter ?status=open|converted, ?product=CODE),
-    render quotes.html. Delete the placeholder line when done."""
-    return scenario_placeholder(request, 1)
+def quotes_list(
+    request: Request,
+    status: str | None = None,
+    product: str | None = None,
+    session: Session = Depends(get_session),
+):
+    stmt = select(Quote).order_by(Quote.created_at.desc())
+    if product:
+        stmt = stmt.join(Product).where(Product.code == product)
+    quotes = list(session.exec(stmt).all())
+
+    open_count = sum(1 for q in quotes if q.policy is None)
+
+    if status == "open":
+        quotes = [q for q in quotes if q.policy is None]
+    elif status == "converted":
+        quotes = [q for q in quotes if q.policy is not None]
+
+    products = session.exec(select(Product).order_by(Product.id)).all()
+    return render(
+        request,
+        "quotes.html",
+        quotes=quotes,
+        status=status,
+        product=product,
+        products=products,
+        open_count=open_count,
+    )
 
 
 @router.get("/customers/{customer_id}", response_class=HTMLResponse)

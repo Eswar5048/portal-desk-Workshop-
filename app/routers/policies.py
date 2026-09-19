@@ -42,9 +42,33 @@ def next_policy_number(session: Session, product_code: ProductCode, start: date)
 
 def issue_policy(payload: PolicyCreate, session: Session) -> Policy:
     """Shared by the API and the HTML form. Raise HTTPException with the right status code on failure."""
-    # TODO (Lab 2): follow the rules in the module docstring. Hint: `quote.policy` is None until a policy exists,
-    #               `quote.product.code` tells you if it is MOTOR.
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "TODO Lab 2: implement issue_policy in app/routers/policies.py")
+    quote = session.get(Quote, payload.quote_id)
+    if quote is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Quote not found")
+
+    if quote.policy is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This quote has already been converted to a policy")
+
+    if quote.product.code == ProductCode.MOTOR and not (payload.vehicle_registration or "").strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Motor policies need a vehicle registration number")
+
+    end_date = payload.start_date + timedelta(days=365 * quote.tenure_years) - timedelta(days=1)
+
+    policy = Policy(
+        quote_id=quote.id,
+        policy_number=next_policy_number(session, quote.product.code, payload.start_date),
+        customer_id=quote.customer_id,
+        product_id=quote.product_id,
+        sum_insured=quote.sum_insured,
+        premium=quote.premium,
+        start_date=payload.start_date,
+        end_date=end_date,
+        vehicle_registration=(payload.vehicle_registration or "").strip().upper() or None,
+    )
+    session.add(policy)
+    session.commit()
+    session.refresh(policy)
+    return policy
 
 
 @router.get("", response_model=list[PolicyRead])
@@ -70,5 +94,13 @@ def get_policy(policy_id: int, session: Session = Depends(get_session)):
 
 @router.patch("/{policy_id}/status", response_model=PolicyRead)
 def update_policy_status(policy_id: int, payload: PolicyStatusUpdate, session: Session = Depends(get_session)):
-    # TODO (Lab 2): 404 if missing, 409 if already Cancelled, otherwise set policy.status, commit, refresh, return.
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "TODO Lab 2: implement update_policy_status")
+    policy = session.get(Policy, policy_id)
+    if not policy:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Policy not found")
+    if policy.status == PolicyStatus.CANCELLED:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cancelled policies cannot be changed")
+    policy.status = payload.status
+    session.add(policy)
+    session.commit()
+    session.refresh(policy)
+    return policy
