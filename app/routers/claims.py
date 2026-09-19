@@ -56,7 +56,7 @@ def file_claim(payload: ClaimCreate, session: Session) -> Claim:
         description=payload.description,
         incident_date=payload.incident_date,
         vehicle_registration=payload.vehicle_registration,
-        status=ClaimStatus.FILED,
+        status=ClaimStatus.UNDER_REVIEW,
     )
     session.add(claim)
     session.commit()

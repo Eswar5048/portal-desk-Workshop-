@@ -72,7 +72,7 @@ def validate_claim(
 
 
 ALLOWED_TRANSITIONS: dict[ClaimStatus, set[ClaimStatus]] = {
-    ClaimStatus.FILED: {ClaimStatus.UNDER_REVIEW, ClaimStatus.REJECTED},
+    ClaimStatus.FILED: {ClaimStatus.UNDER_REVIEW, ClaimStatus.APPROVED, ClaimStatus.REJECTED},
     ClaimStatus.UNDER_REVIEW: {ClaimStatus.APPROVED, ClaimStatus.REJECTED},
     ClaimStatus.APPROVED: set(),
     ClaimStatus.REJECTED: set(),

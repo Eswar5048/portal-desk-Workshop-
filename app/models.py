@@ -173,7 +173,7 @@ class ClaimBase(SQLModel):
 
 class Claim(ClaimBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    status: ClaimStatus = Field(default=ClaimStatus.FILED)
+    status: ClaimStatus = Field(default=ClaimStatus.UNDER_REVIEW)
     reason: str | None = Field(default=None, description="Why a claim was rejected")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

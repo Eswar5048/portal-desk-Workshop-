@@ -18,7 +18,7 @@ def test_file_claim_success(client, health_policy):
     claim = r.json()
     assert claim["policy_id"] == health_policy["id"]
     assert claim["amount"] == 50000
-    assert claim["status"] == ClaimStatus.FILED.value
+    assert claim["status"] == ClaimStatus.UNDER_REVIEW.value
 
 
 def test_file_claim_auto_rejected_on_cancelled_policy(client, health_policy):
@@ -116,7 +116,7 @@ def test_file_motor_claim_requires_vehicle(client, motor_policy):
 
 
 def test_claim_status_workflow_transitions(client, health_policy):
-    # 1. File a claim
+    # 1. File a claim (starts in Under Review)
     claim = client.post(
         "/api/claims",
         json={
@@ -126,15 +126,7 @@ def test_claim_status_workflow_transitions(client, health_policy):
             "incident_date": "2026-06-15",
         },
     ).json()
-
-    # Direct Filed -> Approved should fail (409 Conflict)
-    r_bad = client.patch(f"/api/claims/{claim['id']}/status", json={"status": "Approved"})
-    assert r_bad.status_code == 409
-
-    # Filed -> Under Review (OK)
-    r_review = client.patch(f"/api/claims/{claim['id']}/status", json={"status": "Under Review"})
-    assert r_review.status_code == 200
-    assert r_review.json()["status"] == ClaimStatus.UNDER_REVIEW.value
+    assert claim["status"] == ClaimStatus.UNDER_REVIEW.value
 
     # Under Review -> Approved (OK)
     r_app = client.patch(

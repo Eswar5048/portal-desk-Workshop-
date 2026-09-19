@@ -25,18 +25,13 @@ def test_claim_review_page_and_workflow(client, health_policy):
         },
     ).json()
 
-    # 1. GET /claims/{id} should render and show "Move to review" but NOT "Approve" (since it's Filed)
+    # 1. GET /claims/{id} should render and show "Approve" (starts in Under Review)
     r = client.get(f"/claims/{claim['id']}")
     assert r.status_code == 200
     assert "Claim Review" in r.text
-    assert "Move to review" in r.text
-    assert "Approve" not in r.text
+    assert "Approve" in r.text
 
-    # 2. Advance to Under Review, then Approve
-    client.patch(f"/api/claims/{claim['id']}/status", json={"status": "Under Review"})
-    r_review = client.get(f"/claims/{claim['id']}")
-    assert "Approve" in r_review.text
-
+    # 2. Approve with reason
     client.patch(
         f"/api/claims/{claim['id']}/status",
         json={"status": "Approved", "reason": "Hospital discharge summary verified"},
