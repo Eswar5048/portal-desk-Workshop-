@@ -91,7 +91,13 @@ def update_claim_status(claim_id: int, payload: ClaimStatusUpdate, session: Sess
     if not claim:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Claim not found")
 
-    if not claim_rules.can_transition(claim.status, payload.status):
+    if claim.status in (ClaimStatus.APPROVED, ClaimStatus.REJECTED):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Cannot change claim in final state ({claim.status.value})",
+        )
+
+    if payload.status != claim.status and not claim_rules.can_transition(claim.status, payload.status):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             f"Cannot transition claim from {claim.status.value} to {payload.status.value}",
