@@ -11,7 +11,45 @@ def test_given_pages_render(client):
 def test_student_pages_are_placeholders_until_built(client):
     # These pass on the starter and should be REPLACED by real tests once each scenario is done.
     assert "not built yet" in client.get("/customers/1").text     # Scenario 2
-    assert "not built yet" in client.get("/claims/1").text        # Scenario 3
+
+
+def test_claim_review_page_and_workflow(client, health_policy):
+    # File a claim
+    claim = client.post(
+        "/api/claims",
+        json={
+            "policy_id": health_policy["id"],
+            "amount": 45000,
+            "description": "Hospitalization bill",
+            "incident_date": "2026-06-15",
+        },
+    ).json()
+
+    # 1. GET /claims/{id} should render and show "Move to review" but NOT "Approve" (since it's Filed)
+    r = client.get(f"/claims/{claim['id']}")
+    assert r.status_code == 200
+    assert "Claim Review" in r.text
+    assert "Move to review" in r.text
+    assert "Approve" not in r.text
+
+    # 2. Advance to Under Review, then Approve
+    client.patch(f"/api/claims/{claim['id']}/status", json={"status": "Under Review"})
+    r_review = client.get(f"/claims/{claim['id']}")
+    assert "Approve" in r_review.text
+
+    client.patch(
+        f"/api/claims/{claim['id']}/status",
+        json={"status": "Approved", "reason": "Hospital discharge summary verified"},
+    )
+
+    # 3. Approved claim shows final state note and reason
+    r_approved = client.get(f"/claims/{claim['id']}")
+    assert r_approved.status_code == 200
+    assert "final state" in r_approved.text
+    assert "Hospital discharge summary verified" in r_approved.text
+
+    # 4. Unknown claim returns 404
+    assert client.get("/claims/99999").status_code == 404
 
 
 def test_quotes_list_open_and_product_filter(client, ids):

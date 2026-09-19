@@ -174,9 +174,26 @@ def customer_detail(request: Request, customer_id: int, session: Session = Depen
 
 @router.get("/claims/{claim_id}", response_class=HTMLResponse)
 def claim_detail(request: Request, claim_id: int, session: Session = Depends(get_session)):
-    """SCENARIO 3 — Claim review. TODO: session.get(Claim, id) (404 if missing), remaining cover, allowed next
-    states from ALLOWED_TRANSITIONS, render claim_detail.html."""
-    return scenario_placeholder(request, 3)
+    claim = session.get(Claim, claim_id)
+    if not claim:
+        raise HTTPException(404, "Claim not found")
+
+    policy = claim.policy
+    remaining = remaining_cover(session, policy)
+    within_cover = claim.amount <= remaining or claim.status == ClaimStatus.APPROVED
+    allowed = ALLOWED_TRANSITIONS.get(claim.status, set())
+
+    return render(
+        request,
+        "claim_detail.html",
+        claim=claim,
+        policy=policy,
+        remaining=remaining,
+        within_cover=within_cover,
+        allowed=allowed,
+        flash=request.query_params.get("flash"),
+        error=request.query_params.get("error"),
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pill, alerts %}
+{% block title %}Claim #{{ claim.id }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="container">
+    <div>
+      <span class="eyebrow">Claim Review</span>
+      <h1>Claim <span class="mono">#{{ claim.id }}</span></h1>
+      <p>{{ policy.customer.name }} · {{ policy.product.name }} · {{ pill(claim.status) }}</p>
+    </div>
+    <div class="steps">
+      <span class="step done">1 · Quote</span><span class="arrow">→</span>
+      <span class="step done">2 · Policy</span><span class="arrow">→</span>
+      <span class="step on">3 · Claim</span>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="container">
+    {{ alerts(flash=flash, error=error) }}
+    <div class="grid grid--3" style="margin-bottom:20px">
+      <div class="card stat">
+        <span class="icon-badge">💵</span>
+        <div>
+          <div class="stat__label">Claim amount</div>
+          <div class="stat__value">{{ claim.amount | money }}</div>
+        </div>
+      </div>
+      <div class="card stat">
+        <span class="icon-badge">📉</span>
+        <div>
+          <div class="stat__label">Remaining cover</div>
+          <div class="stat__value">{{ remaining | money }}</div>
+          <div class="stat__hint">of {{ policy.sum_insured | money }} sum insured</div>
+        </div>
+      </div>
+      <div class="card stat">
+        <span class="icon-badge">⚖️</span>
+        <div>
+          <div class="stat__label">Within cover?</div>
+          <div class="stat__value">
+            {% if within_cover %}
+            <span class="pill pill--ok">Yes</span>
+            {% else %}
+            <span class="pill pill--bad">No</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid--side">
+      <div style="display:grid;gap:20px">
+        <div class="card">
+          <div class="card__title"><span class="icon-badge">📝</span> Claim details</div>
+          <dl class="kv">
+            <dt>Incident date</dt>
+            <dd>{{ claim.incident_date.strftime('%d %b %Y') }} <span class="muted small">(Policy: {{ policy.start_date.strftime('%d %b %Y') }} → {{ policy.end_date.strftime('%d %b %Y') }})</span></dd>
+            <dt>Description</dt>
+            <dd>{{ claim.description }}</dd>
+            {% if claim.vehicle_registration %}
+            <dt>Vehicle reg</dt>
+            <dd class="mono">{{ claim.vehicle_registration }}</dd>
+            {% endif %}
+            <dt>Filed time</dt>
+            <dd>{{ claim.created_at.strftime('%d %b %Y, %H:%M') }}</dd>
+            <dt>Status</dt>
+            <dd>{{ pill(claim.status) }}</dd>
+            {% if claim.reason %}
+            <dt>Reason</dt>
+            <dd class="muted">{{ claim.reason }}</dd>
+            {% endif %}
+          </dl>
+        </div>
+
+        <div class="card">
+          <div class="card__title"><span class="icon-badge">🛡️</span> Policy context</div>
+          <dl class="kv">
+            <dt>Customer</dt>
+            <dd><a href="/customers/{{ policy.customer_id }}">{{ policy.customer.name }}</a> <span class="muted">· {{ policy.customer.email }}</span></dd>
+            <dt>Product</dt>
+            <dd>{{ policy.product.name }} <span class="pill pill--brand pill--plain">{{ policy.product.code.value }}</span></dd>
+            <dt>Policy number</dt>
+            <dd><a class="mono" href="/policies/{{ policy.id }}">{{ policy.policy_number }}</a></dd>
+            <dt>Policy status</dt>
+            <dd>{{ pill(policy.status) }}</dd>
+            <dt>Sum insured</dt>
+            <dd>{{ policy.sum_insured | money }}</dd>
+            <dt>Other claims</dt>
+            <dd>{{ policy.claims | length }} total</dd>
+          </dl>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__title"><span class="icon-badge icon-badge--grad">⚖️</span> Decision & Workflow</div>
+        {% if allowed %}
+        <form class="form" method="post" action="/claims/{{ claim.id }}/status">
+          <input type="hidden" name="back" value="/claims/{{ claim.id }}">
+          
+          <div class="field">
+            <label for="reason">Decision reason / notes</label>
+            <textarea name="reason" id="reason" rows="3" placeholder="Enter reason or notes for this decision…"></textarea>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+            {% if ClaimStatus.UNDER_REVIEW in allowed %}
+            <button class="btn btn--ghost" type="submit" name="status" value="Under Review">Move to review</button>
+            {% endif %}
+            {% if ClaimStatus.APPROVED in allowed %}
+            <button class="btn btn--ok" type="submit" name="status" value="Approved" {{ 'disabled' if not within_cover }}>Approve</button>
+            {% endif %}
+            {% if ClaimStatus.REJECTED in allowed %}
+            <button class="btn btn--danger" type="submit" name="status" value="Rejected">Reject</button>
+            {% endif %}
+          </div>
+          {% if ClaimStatus.APPROVED in allowed and not within_cover %}
+          <p class="small muted" style="margin-top:8px;color:var(--c-bad)">Cannot approve: claim amount exceeds remaining cover.</p>
+          {% endif %}
+        </form>
+        {% else %}
+        <div class="alert alert--info" style="margin:0">
+          ℹ️ <span>This claim is in a <strong>final state</strong> ({{ claim.status.value }}). No further transitions are allowed.</span>
+        </div>
+        {% if claim.reason %}
+        <div style="margin-top:14px">
+          <strong>Recorded reason:</strong>
+          <p class="muted">{{ claim.reason }}</p>
+        </div>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
